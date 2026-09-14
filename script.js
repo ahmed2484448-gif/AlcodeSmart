@@ -4,23 +4,20 @@
 ================================================== */
 
 const THEME_KEY = "alkod_alwasit_theme";
-const APP_VERSION = "2.5";
+const APP_VERSION = "3.0";
 // رابط التطبيق المنشور على GitHub Pages — يُستخدم في المشاركة وروابط التحويل
 const APP_SHARE_URL = "https://ahmed2484448-gif.github.io/alcode-alwasitussd2026/";
 const CHANGELOG = [
-    "رمز القفل صار 6 أرقام + تلميح عند النسيان",
-    "الفتح بالبصمة أو بصمة الوجه",
-    "نسخة احتياطية مشفّرة بكلمة سر",
-    "روابط ورموز QR للتحويل والاستلام",
-    "مواقيت الصلاة واتجاه القبلة (بلا إنترنت)",
-    "تذكير أذكار الصباح والمساء",
-    "بحث عام وتراجع عن الحذف",
-    "وضع كبار السن (خط أكبر)",
-    "الرقم السري لجوال بي لم يعد يُحفظ إطلاقًا",
-    "الدفع عبر الباركود صار مربوطًا بجوال بي مباشرة",
-    "مشاركة التطبيق للأيفون برابط ثابت",
-    "عداد لتكبير النص أكثر في وضع كبار السن",
-    "آلة حاسبة صغيرة لحساب المبلغ قبل التحويل",
+    "بطاقاتي: محافظ حقيقية ثلاثية الأبعاد برصيد تديره بنفسك",
+    "تحويل سريع بشريط واحد (محفظة ← مستفيد ← مبلغ) بدل عدة صفحات",
+    "مركز التحكم ⌘ — وصول سريع للرصيد والتحويل والإجراءات",
+    "بطاقة واحدة كحد أقصى لكل جهة تحويل",
+    "سجل كل بطاقة الخاص بها (اسحب البطاقة لعرض تاريخها)",
+    "تحويل داخلي بين محافظك",
+    "وضع الخصوصية — إخفاء الأرقام الحساسة بضغطة",
+    "عرض الرصيد بالدولار (اختياري) مقابل الشيكل",
+    "هوية بصرية جديدة كاملة وشعار جديد للتطبيق",
+    "آخر العمليات صارت بصفحة الإحصائيات",
 ];
 
 
@@ -266,6 +263,7 @@ const THEMES = [
     { id: "neonpurple", name: "البنفسجي النيوني" },
     { id: "titanium",   name: "التيتانيوم الأسود" },
     { id: "holo",       name: "الهولوغرافي" },
+    { id: "palestine",  name: "ليلة فلسطين" },
 ];
 
 const themeButton = document.getElementById("themeButton");
@@ -363,6 +361,15 @@ function applyTheme(id, announce) {
 }
 
 applyTheme(currentTheme(), false);
+
+/* حركة الخلفية المتحركة (#bgFX) — إيقاف/منخفضة/عادية/كاملة، فوق احترام prefers-reduced-motion دائمًا */
+function applyBgMotion(level) {
+    document.body.classList.remove("bg-motion-off", "bg-motion-low", "bg-motion-full");
+    if (level === "off" || level === "low" || level === "full") {
+        document.body.classList.add("bg-motion-" + level);
+    }
+}
+applyBgMotion((Store.getSettings().bgMotion) || "normal");
 
 
 /* -------- الوضع التلقائي: حسب الوقت (نهار/ليل) أو حسب البطارية -------- */
@@ -579,13 +586,10 @@ try { document.body.classList.toggle("privacy-mode", !!Store.getSettings().priva
     }
     function hide() { el.classList.remove("show"); }
 
-    window.addEventListener("offline", () => show("offline", "أنت غير متصل — التطبيق شغّال عادي بدون إنترنت"));
     window.addEventListener("online", () => {
         show("online", "عاد الاتصال");
         hideTimer = setTimeout(hide, 2500);
     });
-
-    if (!navigator.onLine) show("offline", "أنت غير متصل — التطبيق شغّال عادي بدون إنترنت");
 })();
 
 
@@ -726,8 +730,11 @@ document.getElementById("sheetOverlay")
     if (scan) scan.addEventListener("click", () => App.scanQR && App.scanQR());
     if (receive) receive.addEventListener("click", () => App.receiveSheet && App.receiveSheet());
     if (sendBtn) sendBtn.addEventListener("click", () => {
-        const target = document.querySelector(".services");
-        if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+        if (window.Composer) Composer.openCommandCenter();
+        else {
+            const target = document.querySelector(".services");
+            if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
     });
     if (topUpBtn) topUpBtn.addEventListener("click", () => {
         if (window.Cards) Cards.topUpActive();
@@ -1583,7 +1590,19 @@ const Transfer = (function () {
                     const st = Store.contactStats(c.id);
                     const amt = c.quickAmount ||
                         Math.round(st.total / (st.count || 1)) || 50;
-                    quickSend(c, amt);
+                    if (window.Composer) {
+                        const cardsForNet = Store.cardsForNetwork(c.network || "jawwal");
+                        Composer.quickFill({
+                            cardId: cardsForNet.length ? cardsForNet[0].id : null,
+                            contactId: c.id,
+                            recipientName: c.name,
+                            recipientPhone: c.phone,
+                            contactType: c.type || "",
+                            amount: amt,
+                        });
+                    } else {
+                        quickSend(c, amt);
+                    }
                 });
             });
         }
@@ -1936,6 +1955,15 @@ window.OpResult = (function () {
         voiceConfirmToggle.addEventListener("change", () => {
             Store.saveSettings({ voiceConfirm: voiceConfirmToggle.checked });
             App.toast(voiceConfirmToggle.checked ? "سيُقرأ التأكيد بصوت عالٍ" : "أُوقف التأكيد الصوتي");
+        });
+    }
+
+    const bgMotionSelect = document.getElementById("bgMotionSelect");
+    if (bgMotionSelect) {
+        bgMotionSelect.value = s.bgMotion || "normal";
+        bgMotionSelect.addEventListener("change", () => {
+            Store.saveSettings({ bgMotion: bgMotionSelect.value });
+            applyBgMotion(bgMotionSelect.value);
         });
     }
 

@@ -129,6 +129,12 @@
             <!-- لوحة التحكم -->
             <div id="dashboard" class="dashboard glass"></div>
 
+            <!-- Smart Transfer Composer -->
+            <div class="stc-section-head">
+                <span>⚡ تحويل سريع</span>
+            </div>
+            <div id="smartComposerHome"></div>
+
             <!-- إجراءات سريعة -->
             <div class="quick-actions-grid">
                 <button id="sendActionBtn" class="quick-circle-btn" data-tone="purple" type="button">
@@ -486,6 +492,15 @@
                     <span>قراءة العملية بصوت عالٍ قبل التنفيذ</span>
                     <input type="checkbox" id="voiceConfirmToggle">
                 </label>
+                <label class="setting-row">
+                    <span>حركة الخلفية</span>
+                    <select id="bgMotionSelect">
+                        <option value="full">كاملة</option>
+                        <option value="normal">عادية</option>
+                        <option value="low">منخفضة</option>
+                        <option value="off">إيقاف</option>
+                    </select>
+                </label>
             </section>
 
             <!-- العملة -->
@@ -639,8 +654,14 @@
         </div>
         <div id="cardsStack" class="cards-stack"></div>
         <div id="cardsActiveBalance" class="bank-card-balance bank-card-balance-page"></div>
+        <button id="playgroundBtn" class="secondary-button full-button" type="button" style="margin-top:14px;">🎯 تحويل بالسحب</button>
     </section>
 
+
+    <!-- مقبض Pocket Mode — أسرع طريقة لتجهيز تحويل، بلا أي محتوى آخر -->
+    <button id="pocketHandle" class="pocket-handle" type="button" aria-label="تحويل سريع">
+        <span class="pocket-handle-grip"></span>
+    </button>
 
     <!-- ==========================================
          شريط التنقل السفلي
@@ -756,6 +777,8 @@
     <script src="script.js"></script>
     <script src="contacts.js"></script>
     <script src="cards.js"></script>
+    <script src="composer.js"></script>
+    <script src="playground.js"></script>
     <script src="history.js"></script>
     <script src="debts.js"></script>
     <script src="stats.js"></script>

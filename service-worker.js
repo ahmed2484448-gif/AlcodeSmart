@@ -5,7 +5,7 @@
    - عند نشر إصدار جديد: غيّر VERSION فقط.
 ================================================== */
 
-const VERSION = "v37";
+const VERSION = "v47";
 const CACHE = "alkod-alwasit-" + VERSION;
 
 const ASSETS = [
@@ -13,8 +13,9 @@ const ASSETS = [
     "./idb.js", "./data.js", "./lock.js", "./script.js",
     "./contacts.js", "./history.js", "./debts.js", "./stats.js",
     "./fx.js", "./native.js", "./prayer.js", "./qrgen.js", "./qr.js", "./report.js", "./ai.js",
-    "./codedir.js", "./sound.js", "./cards.js", "./receipt.js",
+    "./codedir.js", "./sound.js", "./cards.js", "./composer.js", "./playground.js", "./receipt.js",
     "./icon.png", "./icon-512.png", "./apple-touch-icon.png", "./images/1.png", "./images/2.png", "./images/3.png",
+    "./images/logo.png",
 ];
 
 

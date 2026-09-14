@@ -23,6 +23,11 @@ window.Cards = (function () {
     document.getElementById("cardsBackBtn")
         .addEventListener("click", () => window.switchPage("transferPage"));
 
+    const playgroundBtn = document.getElementById("playgroundBtn");
+    if (playgroundBtn) playgroundBtn.addEventListener("click", () => {
+        if (window.Playground) Playground.open(order[0] || null);
+    });
+
 
     /* -------- المكدّس ثلاثي الأبعاد (مشترك بين لوحة التحكم والصفحة الكاملة) -------- */
 
@@ -388,7 +393,7 @@ window.Cards = (function () {
         return base.concat([
             { action: "topup", icon: "📱", label: "شحن رصيد" },
             { action: "wallet", icon: "🔁", label: "تحويل بين محافظي" },
-            { action: "history", icon: "📜", label: "السجل" },
+            { action: "history", icon: "💼", label: "فتح المحفظة" },
             { action: "flipview", icon: "🔄", label: "تفاصيل" },
         ]);
     }
@@ -448,7 +453,7 @@ window.Cards = (function () {
             <div class="card-portal-inner">
                 <div class="card-portal-head">
                     <button class="card-portal-back" type="button">→ رجوع</button>
-                    <span>سجل ${esc(c ? c.name : "")}</span>
+                    <span>محفظة ${esc(c ? c.name : "")}</span>
                 </div>
                 <div class="card-portal-body" id="cardPortalBody-${id}"></div>
             </div>`;
@@ -461,9 +466,21 @@ window.Cards = (function () {
         const ty = (firstRect.top + firstRect.height / 2) - (lastRect.top + lastRect.height / 2);
         const inner = portal.querySelector(".card-portal-inner");
 
+        /* إغلاق سريع (بلا عكس-FLIP نحو البطاقة) — يُستخدم فقط عند تسليم Portal لـ Composer
+           (المستخدم ذاهب قدمًا للمراجعة، لا "للخلف" نحو البطاقة) */
+        function quickClosePortal() {
+            isAnimating = false;
+            wrapEl.style.visibility = "";
+            focusedId = null;
+            if (REDUCED_MOTION) { portal.remove(); return; }
+            portal.style.transition = "opacity .2s ease";
+            portal.style.opacity = "0";
+            setTimeout(() => portal.remove(), 210);
+        }
+
         if (REDUCED_MOTION) {
             wrapEl.style.visibility = "hidden";
-            renderCardHistory(id, document.getElementById(`cardPortalBody-${id}`));
+            renderPortalBody(id, document.getElementById(`cardPortalBody-${id}`), quickClosePortal);
             isAnimating = false;
         } else {
             portal.style.transition = "none";
@@ -480,7 +497,7 @@ window.Cards = (function () {
             setTimeout(() => {
                 inner.style.transition = "opacity .3s ease";
                 inner.style.opacity = "1";
-                renderCardHistory(id, document.getElementById(`cardPortalBody-${id}`));
+                renderPortalBody(id, document.getElementById(`cardPortalBody-${id}`), quickClosePortal);
                 isAnimating = false;
             }, 520);
         }
@@ -519,14 +536,17 @@ window.Cards = (function () {
         }, 640);
     }
 
-    /* يعيد استخدام نفس بنية/أسلوب .op-item الموجودة أصلًا بصفحة السجل — بيانات حقيقية فقط، مفلترة على هذه البطاقة */
-    function renderCardHistory(id, bodyEl) {
+    /* يعيد استخدام نفس بنية/أسلوب .op-item الموجودة أصلًا بصفحة السجل — بيانات حقيقية فقط، مفلترة على هذه البطاقة
+       limit: لعرض آخر N فقط (Wallet Portal)، أو بلا حد لعرض الكل */
+    function renderCardHistory(id, bodyEl, limit) {
         if (!bodyEl) return;
-        const ops = Store.getOps().filter(o => o.cardId === id);
+        let ops = Store.getOps().filter(o => o.cardId === id);
         if (!ops.length) {
             bodyEl.innerHTML = '<div class="empty-state"><div class="empty-icon">📜</div><h3>لا عمليات بعد</h3><p>أي تحويل تنفّذه من هذه البطاقة رح يظهر هون.</p></div>';
             return;
         }
+        const total = ops.length;
+        if (limit) ops = ops.slice(0, limit);
         bodyEl.innerHTML = ops.map((o, i) => {
             const icon = o.status === "success" ? "✅" : o.status === "failed" ? "❌" : "⏳";
             const title = o.name || o.serviceName || "عملية";
@@ -541,8 +561,110 @@ window.Cards = (function () {
                     <div class="op-amount privacy-sensitive ${o.status === "failed" ? "failed" : ""}">${o.amount ? Store.money(o.amount) : "—"}</div>
                 </div>`;
         }).join("");
+        if (limit && total > limit) {
+            const more = document.createElement("button");
+            more.type = "button";
+            more.className = "link-btn wp-show-all";
+            more.textContent = `عرض كل العمليات (${total}) ›`;
+            more.addEventListener("click", () => renderCardHistory(id, bodyEl, 0));
+            bodyEl.appendChild(more);
+        }
         bodyEl.querySelectorAll(".op-item").forEach(item => {
             item.addEventListener("click", () => { if (window.History) History.openOp(item.dataset.id); });
+        });
+    }
+
+    /* ==================================================
+       Wallet Portal — محتوى بوابة البطاقة: الرصيد (مع تحويل النقود بالسحب)
+       + جهات سريعة + آخر العمليات. لا ينفّذ أي عملية بنفسه — يسلّم فقط لـ Composer الموجود.
+    ================================================== */
+    function renderPortalBody(id, bodyEl, closePortal) {
+        if (!bodyEl) return;
+        const c = Store.getCard(id);
+        if (!c) return;
+        const contacts = (window.Playground && Playground.contactsList) ? Playground.contactsList() : [];
+        let selectedAmount = 0;
+
+        bodyEl.innerHTML = `
+            <button class="wp-balance-btn" id="wpBalanceBtn" type="button">
+                <span>الرصيد — اضغط لتحويل مبلغ بالسحب</span>
+                <strong class="privacy-sensitive">${Store.money(c.balance || 0)} ₪</strong>
+                ${usdEquivalentHtml(c.balance)}
+            </button>
+            <div class="pg-tokens wp-tokens" id="wpTokens" hidden>
+                ${[10, 20, 50, 100].map(v => `
+                    <button class="pg-token" data-amount="${v}" type="button">
+                        <span class="pg-token-amt">${v}</span><span class="pg-token-cur">₪</span>
+                    </button>`).join("")}
+            </div>
+            ${contacts.length ? `
+            <div class="wp-section-title">تحويل سريع</div>
+            <div class="pg-contacts wp-contacts" id="wpContacts">
+                ${contacts.map(ct => `
+                    <button class="card-txn-contact pg-contact" data-id="${ct.id}" type="button">
+                        <span class="card-txn-avatar">${(window.PhotoDB && PhotoDB.get(ct.id)) ? `<img src="${PhotoDB.get(ct.id)}">` : esc((ct.name || "?").charAt(0))}</span>
+                        <span>${esc(ct.name)}</span>
+                    </button>`).join("")}
+            </div>` : ""}
+            <div class="wp-section-title">آخر العمليات</div>
+            <div id="wpHistBody"></div>
+        `;
+
+        renderCardHistory(id, bodyEl.querySelector("#wpHistBody"), 5);
+
+        function completeWith(contact) {
+            const fresh = Store.getCard(id);
+            if (!fresh) return;
+            if (fresh.network !== "bank" && selectedAmount > (fresh.balance || 0)) {
+                App.toast("الرصيد غير كافٍ لإتمام العملية");
+                return;
+            }
+            if (closePortal) closePortal();
+            if (window.Composer && Composer.quickFill) {
+                Composer.quickFill({
+                    cardId: fresh.id,
+                    contactId: contact.id,
+                    recipientName: contact.name,
+                    recipientPhone: contact.phone,
+                    contactType: contact.type || "",
+                    amount: selectedAmount,
+                });
+            }
+        }
+
+        const balBtn = bodyEl.querySelector("#wpBalanceBtn");
+        const tokensWrap = bodyEl.querySelector("#wpTokens");
+        if (balBtn && tokensWrap) {
+            balBtn.addEventListener("click", () => { tokensWrap.hidden = !tokensWrap.hidden; });
+            tokensWrap.querySelectorAll(".pg-token").forEach(tok => {
+                tok.addEventListener("click", () => {
+                    if (tok._justDragged) return;
+                    const amt = Number(tok.dataset.amount);
+                    selectedAmount = selectedAmount === amt ? 0 : amt;
+                    tokensWrap.querySelectorAll(".pg-token").forEach(t => t.classList.toggle("pg-token-active", Number(t.dataset.amount) === selectedAmount));
+                });
+                if (window.Playground && Playground.attachMoneyDrag) {
+                    Playground.attachMoneyDrag(tok, () => Number(tok.dataset.amount), {
+                        targetSelector: ".pg-contact",
+                        onMoved: amt => {
+                            selectedAmount = amt;
+                            tokensWrap.querySelectorAll(".pg-token").forEach(t => t.classList.toggle("pg-token-active", Number(t.dataset.amount) === amt));
+                        },
+                        onDrop: targetEl => {
+                            const ct = Store.getContact(targetEl.dataset.id);
+                            if (ct) completeWith(ct);
+                        },
+                    });
+                }
+            });
+        }
+        const contactsWrap = bodyEl.querySelector("#wpContacts");
+        if (contactsWrap) contactsWrap.querySelectorAll(".pg-contact").forEach(btn => {
+            btn.addEventListener("click", () => {
+                if (!selectedAmount) { App.toast("اضغط الرصيد واختر مبلغًا أولًا"); return; }
+                const ct = Store.getContact(btn.dataset.id);
+                if (ct) completeWith(ct);
+            });
         });
     }
 
@@ -1148,18 +1270,30 @@ window.Cards = (function () {
 
     /* -------- إضافة / تعديل بطاقة -------- */
 
+    /* بطاقة واحدة كحد أقصى لكل جهة تحويل — الشبكات التي عندها بطاقة أصلًا (غير بطاقة التعديل الحالية) تُقفل */
+    function takenNetworks(excludeId) {
+        const set = new Set();
+        Store.getCards().forEach(c => { if (c.id !== excludeId) set.add(c.network); });
+        return set;
+    }
+
     function editSheet(id) {
         const c = id ? Store.getCard(id) : null;
+        const taken = takenNetworks(c ? c.id : null);
 
-        const netOpts = Object.keys(Store.SERVICES).map(k => `
-            <button class="service" data-net="${k}" type="button">
+        const netOpts = Object.keys(Store.SERVICES).map(k => {
+            const isTaken = taken.has(k);
+            return `
+            <button class="service ${isTaken ? "service-taken" : ""}" data-net="${k}" type="button" ${isTaken ? 'aria-disabled="true"' : ""}>
                 <img src="${Store.SERVICES[k].logo}" alt="" class="service-logo">
                 <span>${Store.SERVICES[k].name}</span>
-            </button>`).join("");
+                ${isTaken ? '<small class="service-taken-note">عندك بطاقة فيها</small>' : ""}
+            </button>`;
+        }).join("");
 
         App.openSheet(`
             <div class="sheet-title">${c ? "تعديل بطاقة" : "بطاقة جديدة"}</div>
-            <div class="sheet-sub">تمثيل بصري فقط — بلا أي أرقام حساب حقيقية</div>
+            <div class="sheet-sub">تمثيل بصري فقط — بلا أي أرقام حساب حقيقية. بطاقة واحدة كحد أقصى لكل جهة تحويل.</div>
 
             <div class="input-group">
                 <label>الاسم الكامل (بالإنجليزي)</label>
@@ -1185,7 +1319,13 @@ window.Cards = (function () {
                 b.classList.toggle("active", b.dataset.net === selectedNet));
         }
         netWrap.querySelectorAll(".service").forEach(b => {
-            b.addEventListener("click", () => { selectedNet = b.dataset.net; paintNet(); });
+            b.addEventListener("click", () => {
+                if (b.classList.contains("service-taken")) {
+                    App.toast("عندك بطاقة على هذه الجهة أصلًا — بطاقة وحدة بالحد الأقصى لكل جهة");
+                    return;
+                }
+                selectedNet = b.dataset.net; paintNet();
+            });
         });
         paintNet();
 
@@ -1196,6 +1336,10 @@ window.Cards = (function () {
             if (!name) { App.toast("أدخل الاسم"); return; }
             if (!/^[A-Za-z\s.'-]+$/.test(name)) { App.toast("الاسم يجب أن يكون بالإنجليزي"); return; }
             if (!selectedNet) { App.toast("اختر جهة التحويل"); return; }
+            if (takenNetworks(c ? c.id : null).has(selectedNet)) {
+                App.toast("عندك بطاقة على هذه الجهة أصلًا — بطاقة وحدة بالحد الأقصى لكل جهة");
+                return;
+            }
             if (!phone) { App.toast("أدخل رقم الجوال"); return; }
 
             Store.saveCard({
@@ -1214,5 +1358,5 @@ window.Cards = (function () {
     }
 
 
-    return { render, renderDashboard, topUpActive, flashBalanceUpdate, flashBalanceFail };
+    return { render, renderDashboard, topUpActive, flashBalanceUpdate, flashBalanceFail, cardFaceHtml };
 })();

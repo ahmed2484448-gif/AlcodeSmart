@@ -205,10 +205,33 @@
 
     App.receiveSheet = function () {
         const s = Store.getSettings();
-        const mine = s.myPhone || "";
+        const cards = Store.getCards();
+        let selectedCardId = cards.length ? cards[0].id : null;
+        let selectedNet = cards.length ? cards[0].network : DEFAULT_SERVICE;
+        const mine = cards.length ? cards[0].phone : (s.myPhone || "");
+
+        /* لو عنده أكثر من محفظة — كل محفظة لها رمز/رابط استلام خاص فيها (رقمها + شبكتها الفعلية) */
+        const walletChipsHtml = cards.length ? `
+            <div class="input-group">
+                <label>استلم عبر</label>
+                <div class="services" id="rcvNetWrap">
+                    ${cards.map(c => {
+                        const net = Store.SERVICES[c.network] || {};
+                        return `
+                        <button class="service ${c.id === selectedCardId ? "active" : ""}" data-id="${c.id}" type="button">
+                            <img src="${net.logo || ""}" alt="" class="service-logo">
+                            <span>${App.esc(net.name || "")}</span>
+                        </button>`;
+                    }).join("")}
+                </div>
+            </div>` : "";
+
         App.openSheet(`
             <div class="sheet-title">استلم تحويلًا</div>
-            <div class="sheet-sub">أنشئ رابطًا أو رمز QR يفتح شاشة تحويل جوال بي معبّأة برقمك، وشاركه مع من سيحوّل لك.</div>
+            <div class="sheet-sub">${cards.length
+                ? "أنشئ رابطًا أو رمز QR خاصًا بمحفظتك، وشاركه مع من سيحوّل لك."
+                : "أنشئ رابطًا أو رمز QR يفتح شاشة تحويل جوال بي معبّأة برقمك، وشاركه مع من سيحوّل لك."}</div>
+            ${walletChipsHtml}
             <div class="input-group">
                 <label>رقمي</label>
                 <input id="rcvPhone" type="tel" inputmode="numeric" value="${App.esc(mine)}" placeholder="05XXXXXXXX">
@@ -221,18 +244,34 @@
             <button class="sheet-menu-btn" id="rcvShare" type="button">↗ مشاركة الرابط فقط</button>
         `);
 
+        const netWrap = document.getElementById("rcvNetWrap");
+        if (netWrap) {
+            netWrap.querySelectorAll(".service").forEach(b => {
+                b.addEventListener("click", () => {
+                    selectedCardId = b.dataset.id;
+                    const c = Store.getCard(selectedCardId);
+                    if (!c) return;
+                    selectedNet = c.network;
+                    netWrap.querySelectorAll(".service").forEach(x => x.classList.toggle("active", x === b));
+                    document.getElementById("rcvPhone").value = c.phone;
+                });
+            });
+        }
+
         function collect() {
             const phone = Store.cleanNum(document.getElementById("rcvPhone").value);
             if (!phone) { App.toast("أدخل رقمك"); return null; }
             const amount = Store.cleanAmt(document.getElementById("rcvAmount").value);
-            if (phone !== mine) Store.saveSettings({ myPhone: phone });
-            return { service: DEFAULT_SERVICE, payment: "friend", phone, amount };
+            if (!cards.length && phone !== mine) Store.saveSettings({ myPhone: phone });
+            const net = Store.SERVICES[selectedNet] || {};
+            return { service: selectedNet, payment: net.needsPayment ? "friend" : "", phone, amount };
         }
 
         document.getElementById("rcvQr").addEventListener("click", () => {
             const d = collect();
             if (!d) return;
-            App.showQR(buildLink(d), "حوّل لي", d.amount ? d.amount + " ₪ إلى " + d.phone : d.phone);
+            const net = Store.SERVICES[d.service] || {};
+            App.showQR(buildLink(d), `استلام عبر ${net.name || ""}`, d.amount ? d.amount + " ₪ إلى " + d.phone : d.phone);
         });
         document.getElementById("rcvShare").addEventListener("click", () => {
             const d = collect();
