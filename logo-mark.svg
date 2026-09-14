@@ -1,0 +1,20 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#4a0d14" flood-opacity="0.30"/>
+    </filter>
+  </defs>
+  <g stroke="#ffffff" stroke-width="30" stroke-linecap="round" stroke-linejoin="round" fill="none" filter="url(#soft)">
+    <path d="M168 196 H338"/>
+    <path d="M296 156 L344 196 L296 236"/>
+    <path d="M344 280 H174"/>
+    <path d="M216 320 L168 280 L216 240"/>
+  </g>
+  <path fill="#ffe08a" d="M372 132 l11 28 28 11 -28 11 -11 28 -11 -28 -28 -11 28 -11 Z"/>
+  <text x="256" y="392" text-anchor="middle"
+    font-family="Tahoma, Arial, sans-serif" font-weight="900"
+    font-size="60" letter-spacing="3" fill="#ffffff">USSD</text>
+  <text x="256" y="440" text-anchor="middle"
+    font-family="Tahoma, Arial, sans-serif" font-weight="700"
+    font-size="40" letter-spacing="8" fill="#ffffff">GAZA</text>
+</svg>

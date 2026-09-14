@@ -1,0 +1,18 @@
+{
+    "name": "تطبيق الكود الوسيط",
+    "short_name": "الكود الوسيط",
+    "description": "تطبيق الكود الوسيط للدفع والتحويل",
+    "lang": "ar",
+    "dir": "rtl",
+    "start_url": "./index.html",
+    "scope": "./",
+    "display": "standalone",
+    "background_color": "#07080b",
+    "theme_color": "#07080b",
+    "orientation": "portrait",
+    "icons": [
+        { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+        { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+        { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    ]
+}

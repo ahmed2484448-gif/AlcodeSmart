@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#07080b">
+    <meta name="description"
+        content="تطبيق الكود الوسيط - أداة بسيطة للتحويل عبر خدمات الدفع">
+    <title>تطبيق الكود الوسيط</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+
+    <link rel="icon" href="apple-touch-icon.png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="الكود الوسيط">
+</head>
+
+<body>
+    <script>
+        try {
+            var _t = localStorage.getItem("alkod_alwasit_theme");
+            var _map = { light: "mint", dark: "gold" };
+            document.body.dataset.theme = _map[_t] || _t || "gold";
+        } catch (e) { document.body.dataset.theme = "gold"; }
+    </script>
+
+    <!-- أشكال ضوئية متحركة في الخلفية -->
+    <div id="bgFX" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+
+    <!-- توهّج حواف الشاشة عند النجاح/التحذير/الخطأ -->
+    <div id="edgeGlow" class="edge-glow" aria-hidden="true"></div>
+
+    <!-- =========================
+         شاشة القفل
+    ========================== -->
+
+    <div id="lockScreen" class="lock-screen hidden">
+        <div class="lock-inner">
+            <div class="lock-logos-row">
+                <img id="lockAppLogo" class="app-logo lock-app-logo" src="images/logo.png" alt="الكود الوسيط" aria-hidden="true">
+                <div class="lock-icon" id="lockLogo">🔒</div>
+            </div>
+            <h2 class="lock-title">تطبيق الكود الوسيط</h2>
+            <p class="sadaqa-line" id="lockSadaqa">هذا التطبيق صدقة جارية<br><span class="sadaqa-sub">(عن روح شهداء عائلة فرج الله)</span></p>
+            <p id="lockMsg">أدخل كلمة المرور للدخول</p>
+
+            <div class="input-group lock-field-group" id="lockFieldGroup">
+                <label for="lockPasswordInput">كلمة المرور</label>
+                <div class="lock-field-wrap">
+                    <input id="lockPasswordInput" type="password" inputmode="numeric"
+                        maxlength="6" autocomplete="off" placeholder="••••••">
+                    <button id="lockToggleShow" class="lock-eye" type="button" aria-label="إظهار كلمة المرور">👁</button>
+                </div>
+            </div>
+
+            <label class="lock-remember-row" id="lockRememberRow" hidden>
+                <input type="checkbox" id="lockRemember">
+                <span>تذكرني</span>
+            </label>
+
+            <button id="lockSubmit" class="main-button full-button" type="button">دخول</button>
+
+            <button id="lockBio" class="lock-bio" type="button" hidden>👤  الفتح بالبصمة أو الوجه</button>
+            <button id="lockForgot" class="lock-forgot" type="button" hidden>نسيت كلمة المرور؟</button>
+        </div>
+    </div>
+
+    <!-- انميشن "محمي" يظهر لحظة نجاح إدخال كلمة المرور -->
+    <div id="lockShield" class="lock-shield" aria-hidden="true">
+        <span class="lock-shield-ring"></span>
+        <span class="lock-shield-ring r2"></span>
+        <span class="lock-shield-icon">🛡️</span>
+    </div>
+
+
+    <!-- =========================
+         الرأس
+    ========================== -->
+
+    <header class="top-header">
+        <button id="themeButton" class="theme-button" type="button" aria-label="تغيير المظهر">
+            <svg viewBox="0 0 512 512" width="22" height="22" aria-hidden="true">
+                <path fill="var(--card)" d="M256 24C150 24 96 24 60 60C24 96 24 150 24 256C24 362 24 416 60 452C96 488 150 488 256 488C362 488 416 488 452 452C488 416 488 362 488 256C488 150 488 96 452 60C416 24 362 24 256 24Z"/>
+                <g stroke="var(--primary)" stroke-width="40" stroke-linecap="round" stroke-linejoin="round" fill="none">
+                    <path d="M150 190 H350"/><path d="M300 140 L358 190 L300 240"/>
+                    <path d="M362 322 H162"/><path d="M212 372 L154 322 L212 272"/>
+                </g>
+                <path fill="var(--primary)" d="M410 96 l11 28 28 11 -28 11 -11 28 -11 -28 -28 -11 28 -11 Z"/>
+            </svg>
+        </button>
+        <span id="modeChip" class="mode-chip" hidden></span>
+        <button id="soundToggleButton" class="search-button" type="button"
+            aria-label="كتم/تشغيل الأصوات">🔊</button>
+        <button id="searchButton" class="search-button" type="button"
+            aria-label="بحث">🔍</button>
+    </header>
+
+    <!-- تذكير عند فتح التطبيق -->
+    <div id="dhikrBanner" class="dhikr-banner hidden">
+        <span class="dhikr-dot">◍</span>
+        <span id="dhikrText"></span>
+        <button id="dhikrClose" type="button" aria-label="إغلاق">×</button>
+    </div>
+
+    <!-- مؤشر حالة الاتصال — إعلامي فقط، التطبيق نفسه يعمل بالكامل بلا إنترنت -->
+    <div id="networkStatus" class="network-status hidden" role="status" aria-live="polite"></div>
+
+
+    <main class="main-content">
+
+        <!-- ==========================================
+             صفحة التحويل
+        =========================================== -->
+
+        <section id="transferPage" class="page active-page">
+
+            <!-- شعار التطبيق — يظهر فقط بالصفحة الرئيسية -->
+            <div class="brand home-brand">
+                <img class="app-logo" src="images/logo.png" alt="الكود الوسيط" width="88" height="88">
+                <h1>الكود الوسيط</h1>
+                <p class="sadaqa-line">هذا التطبيق صدقة جارية عن روح شهداء عائلة فرج الله</p>
+            </div>
+
+            <!-- لوحة التحكم -->
+            <div id="dashboard" class="dashboard glass"></div>
+
+            <!-- إجراءات سريعة -->
+            <div class="quick-actions-grid">
+                <button id="sendActionBtn" class="quick-circle-btn" data-tone="purple" type="button">
+                    <span class="quick-circle-icon">↗</span><span>إرسال</span>
+                </button>
+                <button id="receiveBtn" class="quick-circle-btn" data-tone="blue" type="button">
+                    <span class="quick-circle-icon">↙</span><span>استقبال</span>
+                </button>
+                <button id="topUpActionBtn" class="quick-circle-btn" data-tone="green" type="button">
+                    <span class="quick-circle-icon">⚡</span><span>شحن</span>
+                </button>
+                <button id="scanQrBtn" class="quick-circle-btn" data-tone="gold" type="button">
+                    <span class="quick-circle-icon">▤</span><span>دفع</span>
+                </button>
+            </div>
+
+            <!-- التحويلات السريعة -->
+            <div id="quickWrap" class="quick-wrap hidden">
+                <div class="quick-head">
+                    <span>⚡ تحويلات سريعة</span>
+                    <button id="quickManage" class="link-btn" type="button">إدارة</button>
+                </div>
+                <div id="quickTransfers" class="quick-row"></div>
+            </div>
+
+
+            <div class="page-title compact">
+                <h2>تحويل جديد</h2>
+            </div>
+
+
+            <!-- جهة التحويل -->
+            <section class="app-card slim">
+                <div class="section-heading slim">
+                    <span class="heading-icon">⇄</span>
+                    <h3>جهة التحويل</h3>
+                </div>
+                <div class="services">
+                    <button class="service" data-service="jawwal" type="button">
+                        <img src="images/1.png" alt="جوال بي" class="service-logo">
+                        <span>جوال بي</span>
+                    </button>
+                    <button class="service" data-service="palpay" type="button">
+                        <img src="images/2.png" alt="بال بي" class="service-logo">
+                        <span>بال بي</span>
+                    </button>
+                    <button class="service" data-service="bank" type="button">
+                        <img src="images/3.png" alt="بنك فلسطين" class="service-logo">
+                        <span>بنك فلسطين</span>
+                    </button>
+                </div>
+                <div id="sourceCardWrap" class="source-card-wrap hidden"></div>
+            </section>
+
+
+            <!-- طريقة الدفع -->
+            <section id="paymentSection" class="app-card slim">
+                <div class="section-heading slim">
+                    <span class="heading-icon">💳</span>
+                    <h3>طريقة الدفع</h3>
+                </div>
+                <div class="payment-types">
+                    <button class="payment-type" data-type="friend" type="button">
+                        <span class="payment-icon">♙</span><span>الدفع لصديق</span>
+                    </button>
+                    <button class="payment-type" data-type="merchant" type="button">
+                        <span class="payment-icon">♜</span><span>الدفع لتاجر</span>
+                    </button>
+                </div>
+            </section>
+
+
+            <!-- بيانات العملية -->
+            <section class="app-card">
+                <div class="section-heading slim">
+                    <span class="heading-icon">✎</span>
+                    <h3>بيانات العملية</h3>
+                </div>
+
+                <div id="receiverGroup" class="input-group">
+                    <label for="receiver">
+                        رقم المستلم
+                        <button id="pickContactBtn" class="link-btn" type="button">
+                            من الجهات
+                        </button>
+                    </label>
+                    <input id="receiver" type="tel" inputmode="numeric"
+                        autocomplete="off" placeholder="05XXXXXXXX">
+                    <div id="receiverName" class="field-hint"></div>
+                </div>
+
+                <div id="amountGroup" class="input-group">
+                    <label for="amount">المبلغ <span>(بالشيكل)</span></label>
+                    <input id="amount" type="number" inputmode="decimal"
+                        min="1" step="0.01" placeholder="مثال: 10 - 1000">
+                    <div class="amount-chips">
+                        <button type="button" data-amt="10">10</button>
+                        <button type="button" data-amt="20">20</button>
+                        <button type="button" data-amt="50">50</button>
+                        <button type="button" data-amt="100">100</button>
+                    </div>
+                </div>
+
+                <div id="calcGroup" class="input-group calc-group">
+                    <button type="button" id="calcToggle" class="calc-toggle">🧮 آلة حاسبة لحساب المبلغ</button>
+                    <div class="mini-calc" id="miniCalc" hidden>
+                        <div class="calc-display" id="calcDisplay">0</div>
+                        <div class="calc-grid">
+                            <button type="button" class="calc-btn calc-fn" data-calc="clear">C</button>
+                            <button type="button" class="calc-btn calc-fn" data-calc="back">⌫</button>
+                            <button type="button" class="calc-btn calc-op" data-calc="÷">÷</button>
+                            <button type="button" class="calc-btn calc-op" data-calc="×">×</button>
+
+                            <button type="button" class="calc-btn" data-calc="7">7</button>
+                            <button type="button" class="calc-btn" data-calc="8">8</button>
+                            <button type="button" class="calc-btn" data-calc="9">9</button>
+                            <button type="button" class="calc-btn calc-op" data-calc="−">−</button>
+
+                            <button type="button" class="calc-btn" data-calc="4">4</button>
+                            <button type="button" class="calc-btn" data-calc="5">5</button>
+                            <button type="button" class="calc-btn" data-calc="6">6</button>
+                            <button type="button" class="calc-btn calc-op" data-calc="+">+</button>
+
+                            <button type="button" class="calc-btn" data-calc="1">1</button>
+                            <button type="button" class="calc-btn" data-calc="2">2</button>
+                            <button type="button" class="calc-btn" data-calc="3">3</button>
+                            <button type="button" class="calc-btn calc-eq" data-calc="=">=</button>
+
+                            <button type="button" class="calc-btn calc-zero" data-calc="0">0</button>
+                            <button type="button" class="calc-btn" data-calc=".">.</button>
+                        </div>
+                        <div class="calc-result-row" id="calcResultRow" hidden>
+                            <span class="calc-result-label">نتيجة الحسبة <b id="calcResultValue">0</b></span>
+                            <button type="button" class="calc-add-btn" id="calcAddBtn">➕ إضافة المبلغ</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="notesGroup" class="input-group">
+                    <label for="notes">الملاحظات <span>(اختياري)</span></label>
+                    <textarea id="notes" rows="2"
+                        placeholder="تظهر في السجل"></textarea>
+                </div>
+
+                <label class="save-contact-row" id="saveContactRow">
+                    <input type="checkbox" id="saveContactCheck">
+                    <span>حفظ هذا الرقم في الجهات</span>
+                </label>
+
+                <button id="createButton" class="main-button" type="button">
+                    إنشاء الكود وإكمال العملية <span>→</span>
+                </button>
+            </section>
+
+
+            <!-- النتيجة -->
+            <section id="resultSection" class="app-card result-card hidden">
+                <div class="result-icon">✓</div>
+                <h3>الكود جاهز</h3>
+                <p id="resultMessage"></p>
+                <div id="ussdCode" class="ussd-code">-</div>
+                <div class="result-buttons">
+                    <button id="copyButton" class="secondary-button" type="button">
+                        📋 نسخ الكود
+                    </button>
+                    <a id="callButton" class="call-button" href="#">
+                        ☎ تنفيذ التحويل
+                    </a>
+                </div>
+                <button id="shareTransferBtn" class="link-btn" type="button" style="margin-top:10px;">
+                    ↗ شارك تفاصيل هذا التحويل كرابط
+                </button>
+            </section>
+
+        </section>
+
+
+        <!-- ==========================================
+             صفحة الجهات
+        =========================================== -->
+
+        <section id="contactsPage" class="page">
+            <div class="page-title">
+                <h2>الجهات</h2>
+                <p>أرقام المستلمين المحفوظة على جهازك</p>
+            </div>
+
+            <div class="toolbar">
+                <input id="contactSearch" type="search" placeholder="بحث بالاسم أو الرقم...">
+                <button id="addContactBtn" class="mini-btn" type="button">＋ جديد</button>
+            </div>
+
+            <div class="filter-row" id="contactGroups"></div>
+
+            <div id="contactsList"></div>
+        </section>
+
+
+        <!-- ==========================================
+             صفحة السجل
+        =========================================== -->
+
+        <section id="historyPage" class="page">
+            <div class="page-title">
+                <h2>سجل العمليات</h2>
+                <p>محفوظ على هذا الجهاز فقط</p>
+            </div>
+
+            <div class="toolbar">
+                <input id="historySearch" type="search" placeholder="بحث بالاسم أو الرقم أو الكود...">
+                <button id="clearHistoryButton" class="clear-button" type="button">مسح</button>
+            </div>
+
+            <div class="filter-row" id="historyFilters">
+                <button class="filter-chip active" data-filter="all" type="button">الكل</button>
+                <button class="filter-chip" data-filter="success" type="button">✅ ناجحة</button>
+                <button class="filter-chip" data-filter="failed" type="button">❌ فاشلة</button>
+                <button class="filter-chip" data-filter="jawwal" type="button">جوال بي</button>
+                <button class="filter-chip" data-filter="palpay" type="button">بال بي</button>
+                <button class="filter-chip" data-filter="bank" type="button">بنك فلسطين</button>
+            </div>
+
+            <div id="historyContainer"></div>
+        </section>
+
+
+        <!-- ==========================================
+             صفحة الإحصائيات
+        =========================================== -->
+
+        <section id="statsPage" class="page">
+            <div class="page-title">
+                <h2>الإحصائيات</h2>
+                <p>ملخّص عملياتك</p>
+            </div>
+            <div id="statsBody"></div>
+        </section>
+
+
+        <!-- ==========================================
+             صفحة الدفتر (الديون والسلف)
+        =========================================== -->
+
+        <section id="debtsPage" class="page">
+            <div class="page-title">
+                <h2>دفتر الديون والسلف</h2>
+                <p>ما لك وما عليك — محفوظ على جهازك فقط</p>
+            </div>
+
+            <div id="debtsSummary" class="debts-summary"></div>
+
+            <button id="addDebtBtn" class="main-button debts-add-btn" type="button">＋ إضافة قيد</button>
+
+            <div class="input-group">
+                <input id="debtsSearch" type="text" placeholder="ابحث بالاسم، البيان، الجوال...">
+            </div>
+
+            <div class="filter-row" id="debtsFilter">
+                <button class="filter-chip active" data-f="all" type="button">الكل</button>
+                <button class="filter-chip" data-f="me" type="button">مستحق لي (+)</button>
+                <button class="filter-chip" data-f="owe" type="button">التزام عليّ (-)</button>
+                <button class="filter-chip" data-f="open" type="button">غير مسدَّد فقط</button>
+            </div>
+
+            <div id="debtsList"></div>
+        </section>
+
+
+
+        <!-- ==========================================
+             صفحة حول التطبيق + الإعدادات
+        =========================================== -->
+
+        <section id="aboutPage" class="page">
+            <div class="page-title">
+                <h2>حول التطبيق</h2>
+                <p>الإعدادات، والأمان، والنسخ الاحتياطي</p>
+            </div>
+
+            <div class="quick-actions-row">
+                <button id="quickBackupBtn" class="quick-action-card" type="button">
+                    <span class="qa-icon">⬇</span>
+                    <span>نسخة احتياطية</span>
+                </button>
+                <button id="quickLockBtn" class="quick-action-card" type="button">
+                    <span class="qa-icon">🔒</span>
+                    <span>قفل التطبيق الآن</span>
+                </button>
+            </div>
+
+            <!-- الأمان -->
+            <section class="app-card">
+                <div class="section-heading slim">
+                    <span class="heading-icon">🔐</span>
+                    <h3>الأمان</h3>
+                </div>
+
+                <label class="setting-row">
+                    <span>قفل التطبيق برمز PIN</span>
+                    <input type="checkbox" id="pinToggle">
+                </label>
+
+                <label class="setting-row" id="bioRow" hidden>
+                    <span>الفتح بالبصمة أو بصمة الوجه</span>
+                    <input type="checkbox" id="bioToggle">
+                </label>
+
+                <label class="setting-row" id="lockAfterRow" hidden>
+                    <span>القفل التلقائي بعد الخروج</span>
+                    <select id="lockAfterSelect">
+                        <option value="0">فورًا</option>
+                        <option value="90">بعد دقيقة ونصف</option>
+                        <option value="300">بعد 5 دقائق</option>
+                        <option value="-1">لا تقفل تلقائيًا</option>
+                    </select>
+                </label>
+
+                <div class="input-group" id="pinHintRow" hidden>
+                    <label for="pinHintInput">تلميح الرمز <span>(اختياري — يظهر عند «نسيت الرمز؟»)</span></label>
+                    <input id="pinHintInput" type="text" maxlength="60" autocomplete="off"
+                        placeholder="مثال: تاريخ ميلاد أخي">
+                </div>
+
+
+                <div class="input-group" id="userNameRow" hidden>
+                    <label for="userNameInput">اسمك <span>(اختياري — يظهر في شاشة الدخول)</span></label>
+                    <input id="userNameInput" type="text" maxlength="30" autocomplete="off" placeholder="مثال: أحمد">
+                </div>
+
+                <label class="setting-row">
+                    <span>إخفاء أرقام الهواتف جزئيًا</span>
+                    <input type="checkbox" id="maskToggle">
+                </label>
+            </section>
+
+            <!-- العرض -->
+            <section class="app-card">
+                <div class="section-heading slim">
+                    <span class="heading-icon">🔎</span>
+                    <h3>العرض</h3>
+                </div>
+                <label class="setting-row">
+                    <span>خط أكبر وتباين أعلى</span>
+                    <input type="checkbox" id="largeTextToggle">
+                </label>
+                <div class="text-zoom-row" id="textZoomRow" hidden>
+                    <span class="text-zoom-label">حجم النص</span>
+                    <div class="text-zoom-stepper">
+                        <button type="button" id="textZoomDown" class="tz-btn" aria-label="تصغير حجم النص">−</button>
+                        <span id="textZoomValue" class="tz-value">100٪</span>
+                        <button type="button" id="textZoomUp" class="tz-btn" aria-label="تكبير حجم النص">+</button>
+                    </div>
+                </div>
+                <label class="setting-row">
+                    <span>قراءة العملية بصوت عالٍ قبل التنفيذ</span>
+                    <input type="checkbox" id="voiceConfirmToggle">
+                </label>
+            </section>
+
+            <!-- العملة -->
+            <section class="app-card">
+                <div class="section-heading slim">
+                    <span class="heading-icon">💱</span>
+                    <h3>العملة</h3>
+                </div>
+                <div class="input-group">
+                    <label for="usdRateInput">سعر صرف الدولار <span>(اختياري — كم شيكل = 1$، لعرض رصيدك التقريبي بالدولار)</span></label>
+                    <input id="usdRateInput" type="number" inputmode="decimal" min="0" step="0.01" autocomplete="off" placeholder="مثال: 3.65">
+                </div>
+            </section>
+
+            <!-- المساعد الذكي -->
+            <section class="app-card" id="aiCard">
+                <div class="section-heading slim">
+                    <span class="heading-icon">🤖</span>
+                    <h3>المساعد الذكي</h3>
+                </div>
+                <p class="about-text">
+                    مساعد يجيب على أسئلتك ويفكّ أكواد USSD — <strong>يحتاج إنترنت ومفتاح API</strong>.
+                    رسائلك تُرسَل مباشرة لمزوّد الذكاء الذي تختاره، لا للتطبيق.
+                </p>
+                <div class="input-group">
+                    <label>المزوّد</label>
+                    <select id="aiProvider">
+                        <option value="gemini">Google Gemini (مجاني)</option>
+                        <option value="openai">OpenAI متوافق (OpenAI / OpenRouter / Groq)</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="aiKeyInput">
+                        مفتاح API
+                        <span id="aiKeySaved" class="field-saved-badge" hidden>✓ محفوظ</span>
+                    </label>
+                    <input id="aiKeyInput" type="password" autocomplete="off" placeholder="الصق المفتاح هنا">
+                    <div class="field-hint" id="aiKeyHint">
+                        احصل على مفتاح Gemini مجاني من <span style="direction:ltr;">aistudio.google.com/apikey</span>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label for="aiModelInput">الموديل <span>(اختياري)</span></label>
+                    <input id="aiModelInput" type="text" autocomplete="off" placeholder="gemini-flash-latest">
+                </div>
+                <div class="input-group" id="aiEndpointRow" hidden>
+                    <label for="aiEndpointInput">عنوان الـAPI <span>(لغير OpenAI)</span></label>
+                    <input id="aiEndpointInput" type="text" autocomplete="off" placeholder="https://openrouter.ai/api/v1/chat/completions">
+                </div>
+                <button id="aiOpenBtn" class="secondary-button full-button" type="button">💬 فتح المحادثة</button>
+            </section>
+
+            <!-- المشاركة -->
+            <section class="app-card">
+                <div class="section-heading slim">
+                    <span class="heading-icon">🎁</span>
+                    <h3>انشر الصدقة</h3>
+                </div>
+                <p class="about-text">شارك التطبيق مع غيرك — كل فائدة يحصل عليها في ميزان حسنات من أُهديت لهم هذه الصدقة.</p>
+                <div class="btn-col">
+                    <button id="shareIosBtn" class="main-button" type="button">🍏 مشاركة التطبيق للأيفون</button>
+                    <button id="whatsNewBtn" class="link-btn" type="button" style="text-align:center;">✨ ما الجديد في هذا الإصدار</button>
+                </div>
+            </section>
+
+            <!-- النسخ الاحتياطي -->
+            <section class="app-card">
+                <div class="section-heading slim">
+                    <span class="heading-icon">💾</span>
+                    <h3>النسخ الاحتياطي</h3>
+                </div>
+                <p class="about-text">
+                    احفظ نسخة من جهاتك وسجلّك في ملف، أو استعدها لاحقًا.
+                </p>
+                <div class="btn-col">
+                    <button id="exportBtn" class="secondary-button full-button" type="button">
+                        ⬇ تصدير نسخة احتياطية
+                    </button>
+                    <button id="importBtn" class="secondary-button full-button" type="button">
+                        ⬆ استعادة من ملف
+                    </button>
+                    <input type="file" id="importFile" accept="application/json" hidden>
+                    <button id="wipeBtn" class="danger-button full-button" type="button">
+                        🗑 حذف كل البيانات
+                    </button>
+                </div>
+            </section>
+
+            <!-- دليل أكواد USSD -->
+            <section class="app-card">
+                <div class="section-heading slim">
+                    <span class="heading-icon">📞</span>
+                    <h3>دليل أكواد USSD السريعة</h3>
+                </div>
+                <p class="about-text">أكواد جاهزة للاتصال بضغطة — أضف أكوادك الخاصة (فحص رصيد، خدمات أخرى...) بعد التحقّق منها بنفسك.</p>
+                <div id="codeDirList" class="codedir-list"></div>
+                <button id="codeDirAddBtn" class="mini-btn" type="button" style="margin-top:10px;">＋ إضافة كود</button>
+            </section>
+
+            <section class="app-card about-app-card">
+                <div class="about-icon">♡</div>
+                <h3>تطبيق الكود الوسيط</h3>
+                <p class="about-text">
+                    يجمع أهم خيارات التحويل (جوال بي، بال بي، بنك فلسطين) في واجهة واحدة،
+                    ويُنشئ كود USSD المناسب ويفتح شاشة الاتصال لإكمال العملية.
+                    يعمل بالكامل على جهازك دون إنترنت.
+                </p>
+            </section>
+
+            <section class="app-card special-card">
+                <div class="about-icon heart">♥</div>
+                <h3>صدقة جارية</h3>
+                <p class="about-text">صدقة جارية عن روح شهداء عائلة فرج الله.</p>
+                <p class="dua-text">
+                    نسأل الله أن يتقبل هذا العمل، وأن يجعل كل فائدة يحصل عليها مستخدم
+                    من هذا التطبيق في ميزان حسنات من أُهديت لهم هذه الصدقة.
+                </p>
+            </section>
+
+            <section class="developer-card">
+                <div class="developer-icon">✦</div>
+                <h3>صنع بواسطة</h3>
+                <div class="developer-name">أحمد عامر فرج الله</div>
+                <a class="developer-phone" href="tel:0598262172">0598262172 ☎</a>
+            </section>
+
+            <p class="idea-line">💡 تطوير لفكرة أ. بكر السنكري</p>
+
+            <div class="about-footer">
+                جميع الحقوق محفوظة <strong>2026-2027</strong><br>
+                <a href="#">غزة - فلسطين</a>
+            </div>
+        </section>
+
+    </main>
+
+
+    <!-- ==========================================
+         صفحة بطاقاتي (تمثيل بصري + رصيد يديره المستخدم بنفسه)
+    =========================================== -->
+
+    <section id="cardsPage" class="page overlay-page">
+        <div class="cards-page-head">
+            <button id="cardsBackBtn" class="cards-back-btn" type="button">→ رجوع</button>
+            <h2>بطاقاتي</h2>
+            <button id="addCardBtn" class="cards-add-btn" type="button">+ إضافة</button>
+        </div>
+        <div class="cards-total-strip">
+            <span>الرصيد الإجمالي</span>
+            <strong id="cardsTotal" class="privacy-sensitive">0.00 ₪</strong>
+        </div>
+        <div id="cardsStack" class="cards-stack"></div>
+        <div id="cardsActiveBalance" class="bank-card-balance bank-card-balance-page"></div>
+    </section>
+
+
+    <!-- ==========================================
+         شريط التنقل السفلي
+    =========================================== -->
+
+    <nav class="bottom-nav">
+        <span id="navIndicator" class="nav-indicator" aria-hidden="true">
+            <span class="ni-ring"></span>
+            <span class="ni-beam"></span>
+            <span class="ni-icon"></span>
+            <span class="ni-label"></span>
+        </span>
+        <button class="nav-button active" data-page="transferPage" type="button">
+            <span class="nav-icon">⇄</span><span>تحويل</span>
+        </button>
+        <button class="nav-button" data-page="contactsPage" type="button">
+            <span class="nav-icon">👥</span><span>الجهات</span>
+        </button>
+        <button class="nav-button" data-page="historyPage" type="button">
+            <span class="nav-icon">◷</span><span>السجل</span>
+        </button>
+        <button class="nav-button" data-page="statsPage" type="button">
+            <span class="nav-icon">📊</span><span>الإحصائيات</span>
+        </button>
+        <button class="nav-button" data-page="debtsPage" type="button">
+            <span class="nav-icon">📓</span><span>الدفتر</span>
+        </button>
+        <button class="nav-button" data-page="aboutPage" type="button">
+            <span class="nav-icon">ⓘ</span><span>حول</span>
+        </button>
+    </nav>
+
+    <button id="aiFab" class="ai-fab" type="button" aria-label="المساعد الذكي">🤖</button>
+
+
+    <!-- ==========================================
+         نافذة التأكيد
+    =========================================== -->
+
+    <div id="confirmModal" class="confirm-modal hidden">
+        <div class="confirm-overlay"></div>
+        <div class="confirm-box">
+            <div class="confirm-icon">⚠️</div>
+            <h2>تأكيد العملية</h2>
+            <p class="confirm-text">راجع بيانات العملية قبل المتابعة.</p>
+            <button id="replayVoice" class="replay-voice" type="button" hidden>🔊 استمع للتأكيد مجددًا</button>
+            <div class="confirm-details">
+                <div class="history-detail-row">
+                    <span>الخدمة</span><strong id="confirmService">-</strong>
+                </div>
+                <div id="confirmPaymentRow" class="history-detail-row">
+                    <span>طريقة الدفع</span><strong id="confirmPayment">-</strong>
+                </div>
+                <div id="confirmReceiverRow" class="history-detail-row">
+                    <span>رقم المستلم</span><strong id="confirmReceiver">-</strong>
+                </div>
+                <div id="confirmAmountRow" class="history-detail-row">
+                    <span>المبلغ</span><strong id="confirmAmount">-</strong>
+                </div>
+            </div>
+            <div class="confirm-buttons">
+                <button id="confirmCallButton" class="confirm-yes" type="button">
+                    ✓ تأكيد وتنفيذ
+                </button>
+                <button id="cancelCallButton" class="confirm-no" type="button">
+                    إلغاء
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ==========================================
+         شاشة الترحيب (أول تشغيل)
+    =========================================== -->
+
+    <div id="onboarding" class="onboarding hidden">
+        <div class="onb-inner">
+            <img class="onb-logo" src="images/logo.png" alt="الكود الوسيط" aria-hidden="true">
+            <h2>الكود الوسيط</h2>
+            <p class="onb-sub">أسرع طريقة للتحويل عبر جوال بي وبال بي وبنك فلسطين</p>
+            <div class="onb-steps">
+                <div class="onb-step"><b>1</b><span>اختر جهة التحويل وطريقة الدفع</span></div>
+                <div class="onb-step"><b>2</b><span>أدخل الرقم والمبلغ — أو استخدم تحويلًا سريعًا</span></div>
+                <div class="onb-step"><b>3</b><span>راجع وأكّد، ويُفتح الاتصال تلقائيًا</span></div>
+            </div>
+            <p class="onb-note">
+                كل بياناتك محفوظة على جهازك فقط.<br>
+                هذا التطبيق صدقة جارية عن روح شهداء عائلة فرج الله.
+            </p>
+            <button id="onbStart" class="main-button" type="button">ابدأ الآن</button>
+        </div>
+    </div>
+
+
+    <!-- ==========================================
+         ورقة سفلية عامة (جهة / إحصائيات / تفاصيل عملية)
+    =========================================== -->
+
+    <div id="sheet" class="sheet hidden">
+        <div class="sheet-overlay" id="sheetOverlay"></div>
+        <div class="sheet-box">
+            <div class="sheet-handle"></div>
+            <div id="sheetBody"></div>
+        </div>
+    </div>
+
+
+    <script src="idb.js"></script>
+    <script src="data.js"></script>
+    <script src="sound.js"></script>
+    <script src="lock.js"></script>
+    <script src="script.js"></script>
+    <script src="contacts.js"></script>
+    <script src="cards.js"></script>
+    <script src="history.js"></script>
+    <script src="debts.js"></script>
+    <script src="stats.js"></script>
+    <script src="prayer.js"></script>
+    <script src="codedir.js"></script>
+    <script src="fx.js"></script>
+    <script src="native.js"></script>
+    <script src="qrgen.js"></script>
+    <script src="qr.js"></script>
+    <script src="report.js"></script>
+    <script src="receipt.js"></script>
+    <script src="ai.js"></script>
+
+</body>
+
+</html>
